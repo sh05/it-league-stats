@@ -1,0 +1,211 @@
+package repository
+
+import (
+	"it-league-stats/domain/model"
+	"it-league-stats/infrastructure/excel"
+	"regexp"
+	"runtime"
+	"strconv"
+)
+
+const (
+	EXAMPLE_GAME_SHEET                          = "mmdd_対戦相手名"
+	GAME_SHEET_PATTERN                          = `^\d{4}_.*$`
+	DATE_ROW                                    = 2
+	DATE_COL                                    = 2
+	STADIUM_ROW                                 = 2
+	STADIUM_COL                                 = 3
+	SCORE_BOARD_ROW_FROM                        = 3
+	SCORE_BOARD_ROW_TO                          = 4
+	SCORE_BOARD_COL_FROM                        = 8
+	SCORE_BOARD_COL_TO                          = 21
+	SCORE_BOARD_TOP_ROW                         = 0
+	SCORE_BOARD_BOTTOM_ROW                      = 1
+	SCORE_BOARD_BATFIRST_COL                    = 0
+	SCORE_BOARD_FIELDFIRST_COL                  = 0
+	SCORE_BOARD_TOP_COL_FROM                    = 1
+	SCORE_BOARD_TOP_COL_TO                      = 9
+	SCORE_BOARD_BOTTOM_COL_FROM                 = 1
+	SCORE_BOARD_BOTTOM_COL_TO                   = 9
+	BATTING_RESULTS_ROW_FROM                    = 8
+	BATTING_RESULTS_ROW_TO                      = 33
+	BATTING_RESULTS_PLAYER_ID_COL               = 7
+	BATTING_RESULTS_INFILD_FLY_COL              = 8
+	BATTING_RESULTS_INFILD_GROUNDER_COL         = 9
+	BATTING_RESULTS_OUTFIELD_FLY_COL            = 10
+	BATTING_RESULTS_STRIKEOUT_COL               = 11
+	BATTING_RESULTS_WALK_COL                    = 12
+	BATTING_RESULTS_HIT_BY_PITCH_COL            = 13
+	BATTING_RESULTS_SACRIFICE_BUNT_COL          = 14
+	BATTING_RESULTS_SACRIFICE_FLY_COL           = 15
+	BATTING_RESULTS_SINGLE_COL                  = 16
+	BATTING_RESULTS_DOUBLE_COL                  = 17
+	BATTING_RESULTS_TRIPLE_COL                  = 18
+	BATTING_RESULTS_HOME_RUN_COL                = 19
+	BATTING_RESULTS_RUNS_BATTED_IN_COL          = 20
+	BATTING_RESULTS_STOLEN_BASE_COL             = 21
+	BATTING_RESULTS_PLATE_APPEARANCES_COL       = 22
+	PITCHING_RESULTS_ROW_FROM                   = 37
+	PITCHING_RESULTS_ROW_TO                     = 42
+	PITCHING_RESULTS_PLAYER_ID_COL              = 3
+	PITCHING_RESULTS_WIN_COL                    = 4
+	PITCHING_RESULTS_PITCHED_INNINGS_COL        = 5
+	PITCHING_RESULTS_PITCHED_INNINGS_THIRDS_COL = 7
+	PITCHING_RESULTS_STRIKEOUT_COL              = 9
+	PITCHING_RESULTS_RUNS_ALLOWED_COL           = 11
+	PITCHING_RESULTS_WIN_CHAR                   = "勝"
+	PITCHING_RESULTS_LOSS_CHAR                  = "敗"
+	MVP_ROW                                     = 44
+	MVP_FIRST_PLAYER_COL                        = 3
+	MVP_SECOND_PLAYER_COL                       = 10
+)
+
+type ExcelGameRepository struct {
+	filePath string
+	ownTeam  string
+}
+
+func NewExcelGameRepository(filePath, ownTeam string) *ExcelGameRepository {
+	return &ExcelGameRepository{
+		filePath: filePath,
+		ownTeam:  ownTeam,
+	}
+}
+
+func (r *ExcelGameRepository) GetAllGames() ([]model.Game, error) {
+	games := []model.Game{}
+
+	f, err := excel.ReadExcelFile(r.filePath)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, sheetName := range f.GetSheetMap() {
+		if !regexp.MustCompile(GAME_SHEET_PATTERN).MatchString(sheetName) {
+			continue
+		}
+
+		sheet, err := excel.ReadExcelSheet(f, sheetName)
+		if err != nil {
+			return nil, err
+		}
+
+		games = append(games, parseGameSheet(sheetName, sheet))
+	}
+	return games, nil
+}
+
+func parseGameSheet(sheetName string, sheet [][]string) model.Game {
+	date, opponentTeam := dateAndOpponent(sheetName)
+	return model.Game{
+		Date:            date,
+		Stadium:         sheet[STADIUM_ROW][STADIUM_COL],
+		OpponentTeam:    opponentTeam,
+		Score:           parseScoreBoard(sheet[SCORE_BOARD_ROW_TO:SCORE_BOARD_ROW_TO][SCORE_BOARD_COL_FROM:SCORE_BOARD_COL_TO]),
+		BattingResults:  parseBattingResultsTable(sheet[BATTING_RESULTS_ROW_FROM:BATTING_RESULTS_ROW_TO]),
+		PitchingResults: parsePitchingResultsTable(sheet[PITCHING_RESULTS_ROW_FROM:PITCHING_RESULTS_ROW_TO]),
+		MVPs:            parseMVPRow(sheet[MVP_ROW]),
+	}
+}
+
+func parseBattingResultsTable(table [][]string) map[model.PlayerID]model.BattingResults {
+	battingResults := make(map[model.PlayerID]model.BattingResults)
+	for _, row := range table {
+		playerID := model.PlayerID(row[BATTING_RESULTS_PLAYER_ID_COL])
+		if playerID == "" {
+			continue
+		}
+		battingResults[playerID] = model.BattingResults{
+			InfieldFlies:     str2IntEasily(row[BATTING_RESULTS_INFILD_FLY_COL]),
+			InfieldGrounders: str2IntEasily(row[BATTING_RESULTS_INFILD_GROUNDER_COL]),
+			OutfieldFlies:    str2IntEasily(row[BATTING_RESULTS_OUTFIELD_FLY_COL]),
+			Strikeouts:       str2IntEasily(row[BATTING_RESULTS_STRIKEOUT_COL]),
+			Walks:            str2IntEasily(row[BATTING_RESULTS_WALK_COL]),
+			HitsByPitch:      str2IntEasily(row[BATTING_RESULTS_HIT_BY_PITCH_COL]),
+			SacrificeBunts:   str2IntEasily(row[BATTING_RESULTS_SACRIFICE_BUNT_COL]),
+			SacrificeFlies:   str2IntEasily(row[BATTING_RESULTS_SACRIFICE_FLY_COL]),
+			Singles:          str2IntEasily(row[BATTING_RESULTS_SINGLE_COL]),
+			Doubles:          str2IntEasily(row[BATTING_RESULTS_DOUBLE_COL]),
+			Triples:          str2IntEasily(row[BATTING_RESULTS_TRIPLE_COL]),
+			HomeRuns:         str2IntEasily(row[BATTING_RESULTS_HOME_RUN_COL]),
+			RunsBattedIn:     str2IntEasily(row[BATTING_RESULTS_RUNS_BATTED_IN_COL]),
+			StolenBases:      str2IntEasily(row[BATTING_RESULTS_STOLEN_BASE_COL]),
+			PlateAppearances: str2IntEasily(row[BATTING_RESULTS_PLATE_APPEARANCES_COL]),
+		}
+	}
+	return battingResults
+}
+
+func parsePitchingResultsTable(table [][]string) map[model.PlayerID]model.PitchingResults {
+	pitchingResults := make(map[model.PlayerID]model.PitchingResults)
+	for _, row := range table {
+		playerID := model.PlayerID(row[PITCHING_RESULTS_PLAYER_ID_COL])
+		if playerID == "" {
+			continue
+		}
+
+		wins := model.WinLossRecord(0)
+		losses := model.WinLossRecord(0)
+		switch row[PITCHING_RESULTS_WIN_COL] {
+		case PITCHING_RESULTS_WIN_CHAR:
+			wins = model.WinLossRecord(1)
+			losses = model.WinLossRecord(0)
+		case PITCHING_RESULTS_LOSS_CHAR:
+			wins = model.WinLossRecord(0)
+			losses = model.WinLossRecord(1)
+		default:
+			wins = model.WinLossRecord(0)
+			losses = model.WinLossRecord(0)
+		}
+		pitchingResults[playerID] = model.PitchingResults{
+			Strikeouts:     str2IntEasily(row[PITCHING_RESULTS_STRIKEOUT_COL]),
+			InningsPitched: float64(str2IntEasily(row[PITCHING_RESULTS_PITCHED_INNINGS_COL]) + str2IntEasily(row[PITCHING_RESULTS_PITCHED_INNINGS_THIRDS_COL])/10),
+			RunsAllowed:    str2IntEasily(row[PITCHING_RESULTS_RUNS_ALLOWED_COL]),
+			Wins:           wins,
+			Losses:         losses,
+		}
+
+	}
+	return nil
+}
+
+func parseScoreBoard(scoreBoard [][]string) model.Score {
+	return model.Score{
+		BatFirst:   scoreBoard[SCORE_BOARD_TOP_ROW][SCORE_BOARD_BATFIRST_COL],
+		FieldFirst: scoreBoard[SCORE_BOARD_BOTTOM_ROW][SCORE_BOARD_BATFIRST_COL],
+		Top:        strSlieceToIntSlice(scoreBoard[SCORE_BOARD_TOP_ROW][SCORE_BOARD_TOP_COL_FROM:SCORE_BOARD_TOP_COL_TO]),
+		Bottom:     strSlieceToIntSlice(scoreBoard[SCORE_BOARD_BOTTOM_ROW][SCORE_BOARD_BOTTOM_COL_FROM:SCORE_BOARD_BOTTOM_COL_TO]),
+	}
+}
+
+func parseMVPRow(row []string) []model.PlayerID {
+	return []model.PlayerID{
+		(model.PlayerID)(row[MVP_FIRST_PLAYER_COL]),
+		(model.PlayerID)(row[MVP_SECOND_PLAYER_COL]),
+	}
+}
+
+func strSlieceToIntSlice(s []string) []int {
+	var intSlice []int
+	for _, str := range s {
+		intSlice = append(intSlice, str2IntEasily(str))
+	}
+	return intSlice
+}
+
+func str2IntEasily(s string) int {
+	var i int
+	if s == "" {
+		i = 0
+	}
+
+	i, err := strconv.Atoi(s)
+	if err != nil {
+		runtime.Goexit()
+	}
+	return i
+}
+
+func dateAndOpponent(sheetName string) (string, string) {
+	return sheetName[:4], sheetName[5:]
+}
