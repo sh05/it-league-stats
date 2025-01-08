@@ -9,6 +9,7 @@ import (
 	"os"
 
 	godotenv "github.com/joho/godotenv"
+	"github.com/kr/pretty"
 )
 
 const (
@@ -25,25 +26,21 @@ func main() {
 
 	ownTeam := DEFAULT_OWN_TEAM
 	err := godotenv.Load()
-	if err == nil {
-		log.Println("Error loading .env file")
+	if err != nil {
+		log.Fatal("Error loading .env file")
 	} else {
 		ownTeam = os.Getenv("OWN_TEAM")
+		log.Print("OWN_TEAM: ", ownTeam)
 	}
 
 	gameRepo := repository.NewExcelGameRepository(*excelFile, ownTeam)
-	battingStats, pitchingStats, err := usecase.CalculateStats(gameRepo)
+	playerRepo := repository.NewExcelPlayerRepository(*excelFile)
+	games, players, err := usecase.AllData(gameRepo, playerRepo)
 	if err != nil {
-		log.Fatal(err)
+		log.Fatal("Error loading Excel file")
 	}
-
-	fmt.Println("Batting Stats:")
-	for playerID, stats := range battingStats {
-		fmt.Printf("Player %#v: %#v", playerID, stats)
+	for _, player := range players {
+		fmt.Printf("Player: %s#%s\n", player.Name, player.ID)
 	}
-
-	fmt.Println("\nPitching Stats:")
-	for playerID, stats := range pitchingStats {
-		fmt.Printf("Player %#v: %#v", playerID, stats)
-	}
+	fmt.Printf("Game: %# v", pretty.Formatter(games))
 }

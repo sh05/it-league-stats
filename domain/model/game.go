@@ -4,8 +4,12 @@ type Game struct {
 	Date            string
 	Stadium         string
 	OpponentTeam    string
-	Score           Score
+	ScoreBoard      ScoreBoard
 	BattingResults  map[PlayerID]BattingResults
+	BattingOrder    Order
 	PitchingResults map[PlayerID]PitchingResults
+	PitchingOrder   Order
 	MVPs            []PlayerID
 }
+
+type Order []PlayerID

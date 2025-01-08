@@ -3,8 +3,10 @@ package repository
 import (
 	"it-league-stats/domain/model"
 	"it-league-stats/infrastructure/excel"
+	"log"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 )
 
@@ -16,9 +18,9 @@ const (
 	STADIUM_ROW                                 = 2
 	STADIUM_COL                                 = 3
 	SCORE_BOARD_ROW_FROM                        = 3
-	SCORE_BOARD_ROW_TO                          = 4
+	SCORE_BOARD_ROW_TO                          = 4 + 1
 	SCORE_BOARD_COL_FROM                        = 8
-	SCORE_BOARD_COL_TO                          = 21
+	SCORE_BOARD_COL_TO                          = 21 + 1
 	SCORE_BOARD_TOP_ROW                         = 0
 	SCORE_BOARD_BOTTOM_ROW                      = 1
 	SCORE_BOARD_BATFIRST_COL                    = 0
@@ -26,9 +28,9 @@ const (
 	SCORE_BOARD_TOP_COL_FROM                    = 1
 	SCORE_BOARD_TOP_COL_TO                      = 9
 	SCORE_BOARD_BOTTOM_COL_FROM                 = 1
-	SCORE_BOARD_BOTTOM_COL_TO                   = 9
+	SCORE_BOARD_BOTTOM_COL_TO                   = 9 + 1
 	BATTING_RESULTS_ROW_FROM                    = 8
-	BATTING_RESULTS_ROW_TO                      = 33
+	BATTING_RESULTS_ROW_TO                      = 33 + 1
 	BATTING_RESULTS_PLAYER_ID_COL               = 7
 	BATTING_RESULTS_INFILD_FLY_COL              = 8
 	BATTING_RESULTS_INFILD_GROUNDER_COL         = 9
@@ -46,7 +48,7 @@ const (
 	BATTING_RESULTS_STOLEN_BASE_COL             = 21
 	BATTING_RESULTS_PLATE_APPEARANCES_COL       = 22
 	PITCHING_RESULTS_ROW_FROM                   = 37
-	PITCHING_RESULTS_ROW_TO                     = 42
+	PITCHING_RESULTS_ROW_TO                     = 42 + 1
 	PITCHING_RESULTS_PLAYER_ID_COL              = 3
 	PITCHING_RESULTS_WIN_COL                    = 4
 	PITCHING_RESULTS_PITCHED_INNINGS_COL        = 5
@@ -89,7 +91,6 @@ func (r *ExcelGameRepository) GetAllGames() ([]model.Game, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		games = append(games, parseGameSheet(sheetName, sheet))
 	}
 	return games, nil
@@ -97,24 +98,47 @@ func (r *ExcelGameRepository) GetAllGames() ([]model.Game, error) {
 
 func parseGameSheet(sheetName string, sheet [][]string) model.Game {
 	date, opponentTeam := dateAndOpponent(sheetName)
+	battingResults, battingOrder := parseBattingResultsTable(sheet[BATTING_RESULTS_ROW_FROM:BATTING_RESULTS_ROW_TO])
+	pitchingResults, pitchingOrder := parsePitchingResultsTable(sheet[PITCHING_RESULTS_ROW_FROM:PITCHING_RESULTS_ROW_TO])
 	return model.Game{
 		Date:            date,
-		Stadium:         sheet[STADIUM_ROW][STADIUM_COL],
+		Stadium:         sheet[STADIUM_COL][STADIUM_ROW],
 		OpponentTeam:    opponentTeam,
-		Score:           parseScoreBoard(sheet[SCORE_BOARD_ROW_TO:SCORE_BOARD_ROW_TO][SCORE_BOARD_COL_FROM:SCORE_BOARD_COL_TO]),
-		BattingResults:  parseBattingResultsTable(sheet[BATTING_RESULTS_ROW_FROM:BATTING_RESULTS_ROW_TO]),
-		PitchingResults: parsePitchingResultsTable(sheet[PITCHING_RESULTS_ROW_FROM:PITCHING_RESULTS_ROW_TO]),
+		ScoreBoard:      parseScoreBoard(sheet[SCORE_BOARD_ROW_FROM:SCORE_BOARD_ROW_TO]),
+		BattingResults:  battingResults,
+		BattingOrder:    battingOrder,
+		PitchingResults: pitchingResults,
+		PitchingOrder:   pitchingOrder,
 		MVPs:            parseMVPRow(sheet[MVP_ROW]),
 	}
 }
 
-func parseBattingResultsTable(table [][]string) map[model.PlayerID]model.BattingResults {
+func parseScoreBoard(scoreBoardRow [][]string) model.ScoreBoard {
+	offset := SCORE_BOARD_COL_FROM
+	scoreBoardTopRow := scoreBoardRow[SCORE_BOARD_TOP_ROW]
+	scoreBoardBottomRow := scoreBoardRow[SCORE_BOARD_BOTTOM_COL_FROM]
+
+	return model.ScoreBoard{
+		BatFirst: model.Score{
+			Team:   scoreBoardTopRow[SCORE_BOARD_BATFIRST_COL+offset],
+			Scores: strSlieceToIntSlice(scoreBoardTopRow[SCORE_BOARD_TOP_COL_FROM+offset : SCORE_BOARD_TOP_COL_TO+offset]),
+		},
+		FieldFirst: model.Score{
+			Team:   scoreBoardBottomRow[SCORE_BOARD_FIELDFIRST_COL+offset],
+			Scores: strSlieceToIntSlice(scoreBoardBottomRow[SCORE_BOARD_BOTTOM_COL_FROM+offset : SCORE_BOARD_BOTTOM_COL_TO+offset]),
+		},
+	}
+}
+
+func parseBattingResultsTable(table [][]string) (map[model.PlayerID]model.BattingResults, model.Order) {
 	battingResults := make(map[model.PlayerID]model.BattingResults)
+	battingOrder := model.Order{}
 	for _, row := range table {
 		playerID := model.PlayerID(row[BATTING_RESULTS_PLAYER_ID_COL])
 		if playerID == "" {
 			continue
 		}
+		battingOrder = append(battingOrder, playerID)
 		battingResults[playerID] = model.BattingResults{
 			InfieldFlies:     str2IntEasily(row[BATTING_RESULTS_INFILD_FLY_COL]),
 			InfieldGrounders: str2IntEasily(row[BATTING_RESULTS_INFILD_GROUNDER_COL]),
@@ -133,17 +157,19 @@ func parseBattingResultsTable(table [][]string) map[model.PlayerID]model.Batting
 			PlateAppearances: str2IntEasily(row[BATTING_RESULTS_PLATE_APPEARANCES_COL]),
 		}
 	}
-	return battingResults
+	return battingResults, battingOrder
 }
 
-func parsePitchingResultsTable(table [][]string) map[model.PlayerID]model.PitchingResults {
+func parsePitchingResultsTable(table [][]string) (map[model.PlayerID]model.PitchingResults, model.Order) {
 	pitchingResults := make(map[model.PlayerID]model.PitchingResults)
+	pitchingOrder := model.Order{}
 	for _, row := range table {
 		playerID := model.PlayerID(row[PITCHING_RESULTS_PLAYER_ID_COL])
 		if playerID == "" {
 			continue
 		}
 
+		pitchingOrder = append(pitchingOrder, playerID)
 		wins := model.WinLossRecord(0)
 		losses := model.WinLossRecord(0)
 		switch row[PITCHING_RESULTS_WIN_COL] {
@@ -157,25 +183,21 @@ func parsePitchingResultsTable(table [][]string) map[model.PlayerID]model.Pitchi
 			wins = model.WinLossRecord(0)
 			losses = model.WinLossRecord(0)
 		}
+
+		runsAllowed := 0
+		if len(row) >= PITCHING_RESULTS_RUNS_ALLOWED_COL {
+			runsAllowed = str2IntEasily(row[PITCHING_RESULTS_RUNS_ALLOWED_COL])
+		}
 		pitchingResults[playerID] = model.PitchingResults{
 			Strikeouts:     str2IntEasily(row[PITCHING_RESULTS_STRIKEOUT_COL]),
 			InningsPitched: float64(str2IntEasily(row[PITCHING_RESULTS_PITCHED_INNINGS_COL]) + str2IntEasily(row[PITCHING_RESULTS_PITCHED_INNINGS_THIRDS_COL])/10),
-			RunsAllowed:    str2IntEasily(row[PITCHING_RESULTS_RUNS_ALLOWED_COL]),
+			RunsAllowed:    runsAllowed,
 			Wins:           wins,
 			Losses:         losses,
 		}
 
 	}
-	return nil
-}
-
-func parseScoreBoard(scoreBoard [][]string) model.Score {
-	return model.Score{
-		BatFirst:   scoreBoard[SCORE_BOARD_TOP_ROW][SCORE_BOARD_BATFIRST_COL],
-		FieldFirst: scoreBoard[SCORE_BOARD_BOTTOM_ROW][SCORE_BOARD_BATFIRST_COL],
-		Top:        strSlieceToIntSlice(scoreBoard[SCORE_BOARD_TOP_ROW][SCORE_BOARD_TOP_COL_FROM:SCORE_BOARD_TOP_COL_TO]),
-		Bottom:     strSlieceToIntSlice(scoreBoard[SCORE_BOARD_BOTTOM_ROW][SCORE_BOARD_BOTTOM_COL_FROM:SCORE_BOARD_BOTTOM_COL_TO]),
-	}
+	return pitchingResults, pitchingOrder
 }
 
 func parseMVPRow(row []string) []model.PlayerID {
@@ -194,13 +216,17 @@ func strSlieceToIntSlice(s []string) []int {
 }
 
 func str2IntEasily(s string) int {
+	skipChars := []string{"", "x"}
 	var i int
-	if s == "" {
-		i = 0
+	if slices.Contains(skipChars, s) {
+		s = "0"
 	}
 
 	i, err := strconv.Atoi(s)
 	if err != nil {
+		log.Print(s)
+		log.Print(i)
+		log.Panic(err)
 		runtime.Goexit()
 	}
 	return i
