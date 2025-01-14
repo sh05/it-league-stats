@@ -21,7 +21,7 @@ func NewExcelPlayerRepository(filePath string) *ExcelPlayerRepository {
 	return &ExcelPlayerRepository{filePath: filePath}
 }
 
-func (r *ExcelPlayerRepository) GetAllPlayers() ([]model.Player, error) {
+func (r *ExcelPlayerRepository) SetupPlayers() ([]model.Player, error) {
 	f, err := excel.ReadExcelFile(r.filePath)
 	if err != nil {
 		return nil, err
@@ -41,10 +41,7 @@ func parsePlayerList(sheet [][]string) []model.Player {
 		if len(row) < 2 {
 			continue
 		}
-		players = append(players, model.Player{
-			ID:   model.PlayerID(row[PLAYER_LIST_COL_FROM]),
-			Name: row[PLAYER_LIST_COL_TO],
-		})
+		players = append(players, model.NewPlayer(model.PlayerID(row[PLAYER_LIST_COL_FROM]), row[PLAYER_LIST_COL_TO]))
 	}
 	return players
 }

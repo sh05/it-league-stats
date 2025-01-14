@@ -2,6 +2,7 @@ package repository
 
 import (
 	"it-league-stats/domain/model"
+	"it-league-stats/domain/repository"
 	"it-league-stats/infrastructure/excel"
 	"log"
 	"regexp"
@@ -63,18 +64,20 @@ const (
 )
 
 type ExcelGameRepository struct {
-	filePath string
-	ownTeam  string
+	baseGameRepository repository.BaseGameRepository
+	filePath           string
 }
 
 func NewExcelGameRepository(filePath, ownTeam string) *ExcelGameRepository {
 	return &ExcelGameRepository{
+		baseGameRepository: repository.BaseGameRepository{
+			OwnTeam: ownTeam,
+		},
 		filePath: filePath,
-		ownTeam:  ownTeam,
 	}
 }
 
-func (r *ExcelGameRepository) GetAllGames() ([]model.Game, error) {
+func (r *ExcelGameRepository) SetupGames() ([]model.Game, error) {
 	games := []model.Game{}
 
 	f, err := excel.ReadExcelFile(r.filePath)
@@ -130,8 +133,8 @@ func parseScoreBoard(scoreBoardRow [][]string) model.ScoreBoard {
 	}
 }
 
-func parseBattingResultsTable(table [][]string) (map[model.PlayerID]model.BattingResults, model.Order) {
-	battingResults := make(map[model.PlayerID]model.BattingResults)
+func parseBattingResultsTable(table [][]string) (map[model.PlayerID]model.BattingResult, model.Order) {
+	battingResults := make(map[model.PlayerID]model.BattingResult)
 	battingOrder := model.Order{}
 	for _, row := range table {
 		playerID := model.PlayerID(row[BATTING_RESULTS_PLAYER_ID_COL])
@@ -139,7 +142,7 @@ func parseBattingResultsTable(table [][]string) (map[model.PlayerID]model.Battin
 			continue
 		}
 		battingOrder = append(battingOrder, playerID)
-		battingResults[playerID] = model.BattingResults{
+		battingResults[playerID] = model.BattingResult{
 			InfieldFlies:     str2IntEasily(row[BATTING_RESULTS_INFILD_FLY_COL]),
 			InfieldGrounders: str2IntEasily(row[BATTING_RESULTS_INFILD_GROUNDER_COL]),
 			OutfieldFlies:    str2IntEasily(row[BATTING_RESULTS_OUTFIELD_FLY_COL]),
@@ -160,8 +163,8 @@ func parseBattingResultsTable(table [][]string) (map[model.PlayerID]model.Battin
 	return battingResults, battingOrder
 }
 
-func parsePitchingResultsTable(table [][]string) (map[model.PlayerID]model.PitchingResults, model.Order) {
-	pitchingResults := make(map[model.PlayerID]model.PitchingResults)
+func parsePitchingResultsTable(table [][]string) (map[model.PlayerID]model.PitchingResult, model.Order) {
+	pitchingResults := make(map[model.PlayerID]model.PitchingResult)
 	pitchingOrder := model.Order{}
 	for _, row := range table {
 		playerID := model.PlayerID(row[PITCHING_RESULTS_PLAYER_ID_COL])
@@ -188,7 +191,7 @@ func parsePitchingResultsTable(table [][]string) (map[model.PlayerID]model.Pitch
 		if len(row) >= PITCHING_RESULTS_RUNS_ALLOWED_COL {
 			runsAllowed = str2IntEasily(row[PITCHING_RESULTS_RUNS_ALLOWED_COL])
 		}
-		pitchingResults[playerID] = model.PitchingResults{
+		pitchingResults[playerID] = model.PitchingResult{
 			Strikeouts:     str2IntEasily(row[PITCHING_RESULTS_STRIKEOUT_COL]),
 			InningsPitched: float64(str2IntEasily(row[PITCHING_RESULTS_PITCHED_INNINGS_COL]) + str2IntEasily(row[PITCHING_RESULTS_PITCHED_INNINGS_THIRDS_COL])/10),
 			RunsAllowed:    runsAllowed,

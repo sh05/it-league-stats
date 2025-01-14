@@ -9,7 +9,6 @@ import (
 	"os"
 
 	godotenv "github.com/joho/godotenv"
-	"github.com/kr/pretty"
 )
 
 const (
@@ -35,12 +34,22 @@ func main() {
 
 	gameRepo := repository.NewExcelGameRepository(*excelFile, ownTeam)
 	playerRepo := repository.NewExcelPlayerRepository(*excelFile)
-	games, players, err := usecase.AllData(gameRepo, playerRepo)
+	_, players, err := usecase.Setup(gameRepo, playerRepo)
 	if err != nil {
-		log.Fatal("Error loading Excel file")
+		log.Fatal(err)
 	}
-	for _, player := range players {
-		fmt.Printf("Player: %s#%s\n", player.Name, player.ID)
+	battingStats, pitchingStats, err := usecase.CalculateStats(gameRepo)
+	if err != nil {
+		log.Fatal(err)
 	}
-	fmt.Printf("Game: %# v", pretty.Formatter(games))
+
+	fmt.Println("Batting Stats:")
+	for playerID, stats := range battingStats {
+		fmt.Printf("Player %#v: %#v", playerID, stats)
+	}
+
+	fmt.Println("\nPitching Stats:")
+	for playerID, stats := range pitchingStats {
+		fmt.Printf("Player %#v: %#v", playerID, stats)
+	}
 }

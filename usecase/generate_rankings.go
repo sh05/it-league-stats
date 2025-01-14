@@ -22,7 +22,7 @@ func NewRankingGenerator(playerRepo repository.PlayerRepository, gameRepo reposi
 }
 
 func (rg *RankingGenerator) GenerateRankings() ([]model.Ranking, error) {
-	games, err := rg.gameRepo.GetAllGames()
+	games, err := rg.gameRepo.SetupGames()
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +37,7 @@ func (rg *RankingGenerator) GenerateRankings() ([]model.Ranking, error) {
 	return rankings, nil
 }
 
-func (rg *RankingGenerator) generateHomeRunRanking(stats map[model.PlayerID]model.BattingResults) model.Ranking {
+func (rg *RankingGenerator) generateHomeRunRanking(stats map[model.PlayerID]model.BattingResult) model.Ranking {
 	entries := make([]model.RankingEntry, 0, len(stats))
 	for playerID, stat := range stats {
 		entries = append(entries, model.RankingEntry{PlayerID: playerID, Value: float64(stat.HomeRuns)})
@@ -48,7 +48,7 @@ func (rg *RankingGenerator) generateHomeRunRanking(stats map[model.PlayerID]mode
 	return model.Ranking{Category: "本塁打", Entries: entries[:min(len(entries), 10)]}
 }
 
-func (rg *RankingGenerator) generateStrikeoutRanking(stats map[model.PlayerID]model.PitchingResults) model.Ranking {
+func (rg *RankingGenerator) generateStrikeoutRanking(stats map[model.PlayerID]model.PitchingResult) model.Ranking {
 	entries := make([]model.RankingEntry, 0, len(stats))
 	for playerID, stat := range stats {
 		entries = append(entries, model.RankingEntry{PlayerID: playerID, Value: float64(stat.Strikeouts)})

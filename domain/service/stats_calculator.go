@@ -10,9 +10,9 @@ func NewStatsCalculator() *StatsCalculator {
 	return &StatsCalculator{}
 }
 
-func (sc *StatsCalculator) CalculateSeasonStats(games []model.Game) (map[model.PlayerID]model.BattingResults, map[model.PlayerID]model.PitchingResults) {
-	battingStats := make(map[model.PlayerID]model.BattingResults)
-	pitchingStats := make(map[model.PlayerID]model.PitchingResults)
+func (sc *StatsCalculator) CalculateSeasonStats(games []model.Game) (map[model.PlayerID]model.BattingResult, map[model.PlayerID]model.PitchingResult) {
+	battingStats := make(map[model.PlayerID]model.BattingResult)
+	pitchingStats := make(map[model.PlayerID]model.PitchingResult)
 
 	for _, game := range games {
 		sc.updateBattingStats(battingStats, game)
@@ -25,11 +25,11 @@ func (sc *StatsCalculator) CalculateSeasonStats(games []model.Game) (map[model.P
 	return battingStats, pitchingStats
 }
 
-func (sc *StatsCalculator) updateBattingStats(stats map[model.PlayerID]model.BattingResults, game model.Game) {
+func (sc *StatsCalculator) updateBattingStats(stats map[model.PlayerID]model.BattingResult, game model.Game) {
 	for playerID, gameStat := range game.BattingResults {
 		playerStats, exists := stats[playerID]
 		if !exists {
-			playerStats = model.BattingResults{}
+			playerStats = model.BattingResult{}
 		}
 
 		playerStats.Singles += gameStat.Singles
@@ -41,11 +41,11 @@ func (sc *StatsCalculator) updateBattingStats(stats map[model.PlayerID]model.Bat
 	}
 }
 
-func (sc *StatsCalculator) updatePitchingStats(stats map[model.PlayerID]model.PitchingResults, game model.Game) {
+func (sc *StatsCalculator) updatePitchingStats(stats map[model.PlayerID]model.PitchingResult, game model.Game) {
 	for playerID, gameStat := range game.PitchingResults {
 		playerStats, exists := stats[playerID]
 		if !exists {
-			playerStats = model.PitchingResults{}
+			playerStats = model.PitchingResult{}
 		}
 
 		playerStats.InningsPitched += gameStat.InningsPitched
@@ -62,7 +62,7 @@ func (sc *StatsCalculator) updatePitchingStats(stats map[model.PlayerID]model.Pi
 	}
 }
 
-func (sc *StatsCalculator) calculateAverages(stats map[model.PlayerID]model.BattingResults) {
+func (sc *StatsCalculator) calculateAverages(stats map[model.PlayerID]model.BattingResult) {
 	for playerID, stat := range stats {
 		// if stat.AtBats > 0 {
 		// 	stat.BattingAverage = float64(stat.Hits) / float64(stat.AtBats)
@@ -71,7 +71,7 @@ func (sc *StatsCalculator) calculateAverages(stats map[model.PlayerID]model.Batt
 	}
 }
 
-func (sc *StatsCalculator) calculateERAs(stats map[model.PlayerID]model.PitchingResults) {
+func (sc *StatsCalculator) calculateERAs(stats map[model.PlayerID]model.PitchingResult) {
 	for playerID, stat := range stats {
 		// if stat.InningsPitched > 0 {
 		// 	stat.ERA = (stat.EarnedRuns * 9) / stat.InningsPitched
