@@ -9,7 +9,7 @@ type PlayerID string
 type Player struct {
 	ID              PlayerID
 	Name            string
-	GamesPlayed     int
+	GamesPlayed     float64
 	BattingResults  BattingResult
 	PitchingResults PitchingResult
 }
@@ -43,4 +43,13 @@ func (p *Player) UpdateResults(games []Game) {
 			p.GamesPlayed += 1
 		}
 	}
+}
+
+func PlayerByID(players []Player, id PlayerID) Player {
+	for _, p := range players {
+		if p.ID == id {
+			return p
+		}
+	}
+	return Player{}
 }

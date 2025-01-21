@@ -124,11 +124,11 @@ func parseScoreBoard(scoreBoardRow [][]string) model.ScoreBoard {
 	return model.ScoreBoard{
 		BatFirst: model.Score{
 			Team:   scoreBoardTopRow[SCORE_BOARD_BATFIRST_COL+offset],
-			Scores: strSlieceToIntSlice(scoreBoardTopRow[SCORE_BOARD_TOP_COL_FROM+offset : SCORE_BOARD_TOP_COL_TO+offset]),
+			Scores: strSlice2Float64Slice(scoreBoardTopRow[SCORE_BOARD_TOP_COL_FROM+offset : SCORE_BOARD_TOP_COL_TO+offset]),
 		},
 		FieldFirst: model.Score{
 			Team:   scoreBoardBottomRow[SCORE_BOARD_FIELDFIRST_COL+offset],
-			Scores: strSlieceToIntSlice(scoreBoardBottomRow[SCORE_BOARD_BOTTOM_COL_FROM+offset : SCORE_BOARD_BOTTOM_COL_TO+offset]),
+			Scores: strSlice2Float64Slice(scoreBoardBottomRow[SCORE_BOARD_BOTTOM_COL_FROM+offset : SCORE_BOARD_BOTTOM_COL_TO+offset]),
 		},
 	}
 }
@@ -143,21 +143,21 @@ func parseBattingResultsTable(table [][]string) (map[model.PlayerID]model.Battin
 		}
 		battingOrder = append(battingOrder, playerID)
 		battingResults[playerID] = model.BattingResult{
-			InfieldFlies:     str2IntEasily(row[BATTING_RESULTS_INFILD_FLY_COL]),
-			InfieldGrounders: str2IntEasily(row[BATTING_RESULTS_INFILD_GROUNDER_COL]),
-			OutfieldFlies:    str2IntEasily(row[BATTING_RESULTS_OUTFIELD_FLY_COL]),
-			Strikeouts:       str2IntEasily(row[BATTING_RESULTS_STRIKEOUT_COL]),
-			Walks:            str2IntEasily(row[BATTING_RESULTS_WALK_COL]),
-			HitsByPitch:      str2IntEasily(row[BATTING_RESULTS_HIT_BY_PITCH_COL]),
-			SacrificeBunts:   str2IntEasily(row[BATTING_RESULTS_SACRIFICE_BUNT_COL]),
-			SacrificeFlies:   str2IntEasily(row[BATTING_RESULTS_SACRIFICE_FLY_COL]),
-			Singles:          str2IntEasily(row[BATTING_RESULTS_SINGLE_COL]),
-			Doubles:          str2IntEasily(row[BATTING_RESULTS_DOUBLE_COL]),
-			Triples:          str2IntEasily(row[BATTING_RESULTS_TRIPLE_COL]),
-			HomeRuns:         str2IntEasily(row[BATTING_RESULTS_HOME_RUN_COL]),
-			RunsBattedIn:     str2IntEasily(row[BATTING_RESULTS_RUNS_BATTED_IN_COL]),
-			StolenBases:      str2IntEasily(row[BATTING_RESULTS_STOLEN_BASE_COL]),
-			PlateAppearances: str2IntEasily(row[BATTING_RESULTS_PLATE_APPEARANCES_COL]),
+			InfieldFlies:     str2Float64Easily(row[BATTING_RESULTS_INFILD_FLY_COL]),
+			InfieldGrounders: str2Float64Easily(row[BATTING_RESULTS_INFILD_GROUNDER_COL]),
+			OutfieldFlies:    str2Float64Easily(row[BATTING_RESULTS_OUTFIELD_FLY_COL]),
+			Strikeouts:       str2Float64Easily(row[BATTING_RESULTS_STRIKEOUT_COL]),
+			Walks:            str2Float64Easily(row[BATTING_RESULTS_WALK_COL]),
+			HitsByPitch:      str2Float64Easily(row[BATTING_RESULTS_HIT_BY_PITCH_COL]),
+			SacrificeBunts:   str2Float64Easily(row[BATTING_RESULTS_SACRIFICE_BUNT_COL]),
+			SacrificeFlies:   str2Float64Easily(row[BATTING_RESULTS_SACRIFICE_FLY_COL]),
+			Singles:          str2Float64Easily(row[BATTING_RESULTS_SINGLE_COL]),
+			Doubles:          str2Float64Easily(row[BATTING_RESULTS_DOUBLE_COL]),
+			Triples:          str2Float64Easily(row[BATTING_RESULTS_TRIPLE_COL]),
+			HomeRuns:         str2Float64Easily(row[BATTING_RESULTS_HOME_RUN_COL]),
+			RunsBattedIn:     str2Float64Easily(row[BATTING_RESULTS_RUNS_BATTED_IN_COL]),
+			StolenBases:      str2Float64Easily(row[BATTING_RESULTS_STOLEN_BASE_COL]),
+			PlateAppearances: str2Float64Easily(row[BATTING_RESULTS_PLATE_APPEARANCES_COL]),
 		}
 	}
 	return battingResults, battingOrder
@@ -187,13 +187,13 @@ func parsePitchingResultsTable(table [][]string) (map[model.PlayerID]model.Pitch
 			losses = model.WinLossRecord(0)
 		}
 
-		runsAllowed := 0
+		runsAllowed := 0.0
 		if len(row) >= PITCHING_RESULTS_RUNS_ALLOWED_COL {
-			runsAllowed = str2IntEasily(row[PITCHING_RESULTS_RUNS_ALLOWED_COL])
+			runsAllowed = str2Float64Easily(row[PITCHING_RESULTS_RUNS_ALLOWED_COL])
 		}
 		pitchingResults[playerID] = model.PitchingResult{
-			Strikeouts:     str2IntEasily(row[PITCHING_RESULTS_STRIKEOUT_COL]),
-			InningsPitched: float64(str2IntEasily(row[PITCHING_RESULTS_PITCHED_INNINGS_COL]) + str2IntEasily(row[PITCHING_RESULTS_PITCHED_INNINGS_THIRDS_COL])/10),
+			Strikeouts:     str2Float64Easily(row[PITCHING_RESULTS_STRIKEOUT_COL]),
+			InningsPitched: float64(str2Float64Easily(row[PITCHING_RESULTS_PITCHED_INNINGS_COL]) + str2Float64Easily(row[PITCHING_RESULTS_PITCHED_INNINGS_THIRDS_COL])/10),
 			RunsAllowed:    runsAllowed,
 			Wins:           wins,
 			Losses:         losses,
@@ -210,29 +210,30 @@ func parseMVPRow(row []string) []model.PlayerID {
 	}
 }
 
-func strSlieceToIntSlice(s []string) []int {
-	var intSlice []int
+func strSlice2Float64Slice(s []string) []float64 {
+	var floatSlice []float64
 	for _, str := range s {
-		intSlice = append(intSlice, str2IntEasily(str))
+		floatSlice = append(floatSlice, str2Float64Easily(str))
 	}
-	return intSlice
+	return floatSlice
 }
 
-func str2IntEasily(s string) int {
+func str2Float64Easily(s string) float64 {
 	skipChars := []string{"", "x"}
-	var i int
+	var f float64
 	if slices.Contains(skipChars, s) {
 		s = "0"
 	}
 
-	i, err := strconv.Atoi(s)
+	// sをfloat64にする処理
+	f, err := strconv.ParseFloat(s, 64)
 	if err != nil {
 		log.Print(s)
-		log.Print(i)
+		log.Print(f)
 		log.Panic(err)
 		runtime.Goexit()
 	}
-	return i
+	return f
 }
 
 func dateAndOpponent(sheetName string) (string, string) {

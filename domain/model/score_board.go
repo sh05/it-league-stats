@@ -7,5 +7,5 @@ type ScoreBoard struct {
 
 type Score struct {
 	Team   string
-	Scores []int
+	Scores []float64
 }

@@ -2,8 +2,8 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"it-league-stats/infrastructure/repository"
+	drepository "it-league-stats/domain/repository"
+	irepository "it-league-stats/infrastructure/repository"
 	"it-league-stats/usecase"
 	"log"
 	"os"
@@ -16,10 +16,11 @@ const (
 )
 
 func main() {
-	excelFile := flag.String("file", "", "Path to the Excel file")
+	inputExcelFilePath := flag.String("input-file", "", "Path to the Input Excel file")
+	outputExcelFilePath := flag.String("output-file", "", "Path to the Output Excel file")
 	flag.Parse()
 
-	if *excelFile == "" {
+	if *inputExcelFilePath == "" {
 		log.Fatal("Excel file path is required")
 	}
 
@@ -29,27 +30,19 @@ func main() {
 		log.Fatal("Error loading .env file")
 	} else {
 		ownTeam = os.Getenv("OWN_TEAM")
-		log.Print("OWN_TEAM: ", ownTeam)
 	}
 
-	gameRepo := repository.NewExcelGameRepository(*excelFile, ownTeam)
-	playerRepo := repository.NewExcelPlayerRepository(*excelFile)
-	_, players, err := usecase.Setup(gameRepo, playerRepo)
+	gameRepo := irepository.NewExcelGameRepository(*inputExcelFilePath, ownTeam)
+	playerRepo := irepository.NewExcelPlayerRepository(*inputExcelFilePath)
+	var rankingRepo drepository.RankingRepository
+	if *outputExcelFilePath == "" {
+		rankingRepo = irepository.NewStdoutRankingRepository()
+	} else {
+		rankingRepo = irepository.NewExcelRankingRepository(*outputExcelFilePath)
+	}
+	rg, err := usecase.NewRankingGenerator(playerRepo, gameRepo, rankingRepo)
 	if err != nil {
 		log.Fatal(err)
 	}
-	battingStats, pitchingStats, err := usecase.CalculateStats(gameRepo)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	fmt.Println("Batting Stats:")
-	for playerID, stats := range battingStats {
-		fmt.Printf("Player %#v: %#v", playerID, stats)
-	}
-
-	fmt.Println("\nPitching Stats:")
-	for playerID, stats := range pitchingStats {
-		fmt.Printf("Player %#v: %#v", playerID, stats)
-	}
+	rg.PrintRankings()
 }
