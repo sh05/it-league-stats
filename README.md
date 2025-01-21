@@ -3,7 +3,7 @@
 ITリーグのスコアシートを集計するツール
 
 ```bash
-go run main.go --input-file hoge.xlsx  --output-file result.xlsx
+go run main.go --input-file hoge.xlsx  --output-file fuga.xlsx
 ```
 
 or
@@ -11,4 +11,3 @@ or
 ```bash
 go run main.go --input-file hoge.xlsx
 ```
-
