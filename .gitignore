@@ -24,3 +24,7 @@ go.work.sum
 
 # env file
 .env
+
+# acutal score file
+fuga.xlsx
+result.xlsx

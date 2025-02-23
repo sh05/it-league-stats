@@ -21,7 +21,7 @@ func main() {
 	flag.Parse()
 
 	if *inputExcelFilePath == "" {
-		log.Fatal("Excel file path is required")
+		log.Fatal("Input Excel file path is required")
 	}
 
 	ownTeam := DEFAULT_OWN_TEAM
