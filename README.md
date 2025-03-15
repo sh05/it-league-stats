@@ -1,4 +1,4 @@
-# it-league-stats
+# it-league-stats-leisures
 
 ITリーグのスコアシートを集計するツール
 
